@@ -1,9 +1,9 @@
 import numpy as np
 
 
-def load_az():
+def load_az(datasetPath):
     data = labels = []
-    for row in open('./A_Z Handwritten Data/A_Z Handwritten Data.csv'):
+    for row in open(datasetPath):
         row = row.split(',')
         label = int(row[0])
         image = np.array([int(x) for x in row[1:]], dtype='uint8')
