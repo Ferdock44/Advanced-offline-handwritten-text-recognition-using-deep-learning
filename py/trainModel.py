@@ -1,10 +1,9 @@
 import matplotlib
 matplotlib.use("Agg")
 
-
-#### Need to set up import of dataset loaders######
-# from loadMnist import *
-# from "./load_AZ.py" import *
+from models import ResNet
+from dataset_loading import load_az
+from dataset_loading import load_mnist_dataset
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
 from tensorflow.keras.optimizers import SGD
 from sklearn.preprocessing import LabelBinarizer
@@ -47,7 +46,7 @@ labels = np.hstack([azLabels, digitsLabels])
 data = [cv2.resize(image, (32, 32)) for image in data]
 data = np.array(data, dtype="float32")
 
-data.np.expand_dims(data, axis=-1)
+data = np.expand_dims(data, axis=-1)
 data /= 255.0
 
 # Convert the labels from ints to vectors
@@ -108,3 +107,54 @@ print(classification_report(Ytest.argmax(axis=1),
                             predictions.argmax(axis=1),
                             target_names=labelNames
                             ))
+
+# save the model
+print("...serializing network...")
+model.save(args["model"], save_format="h5")
+
+# construct and save a plot that shows training history
+N = np.arange(0, EPOCHS)
+plt.style.use("ggplot")
+plt.figure()
+plt.plot(N, H.history["loss"], label="train_loss")
+plt.plot(N, H.history["val_loss"], label="val_loss")
+plt.title("Training Loss and Accuracy")
+plt.xlabel("Epoch #")
+plt.ylabel("Loss/Accuracy")
+plt.legend(loc="lower left")
+plt.savefig(args["plot"])
+
+# initialize list of output test images
+images = []
+
+# randomly select test characters
+for i in np.random.choice(np.arange(0, len(Ytest)), size=(49,)):
+    # classify the character
+    probs = model.predict(Xtest[np.newaxis, i])
+    prediction = probs.argmax(axis=1)
+    label = labelNames[prediction[0]]
+
+    # Extract image from test data and initialize text
+    # label color as green if correct
+    image = (Xtest[i] * 255).astype("uint8")
+    color = (0, 255, 0)
+
+    # Label color as red if incorrect
+    if prediction[0] != np.argmax(Ytest[i]):
+        color = (0, 0, 255)
+
+    # Merge the channels into one image and resize from 32 x 32
+    # to 96 x 96 so we can draw the predicted label on the image
+    image = cv2.merge([image] * 3)
+    image = cv2.resize(image, (96, 96), interpolation=cv2.INTER_LINEAR)
+    cv2.putText(image, label, (5, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.75, color, 2)
+
+    # Add the image to list of output images
+    images.append(image)
+
+# Construct build montage for the images
+montage = build_montages(images, (96, 96), (7, 7))[0]
+
+# Show the output montage
+cv2.imshow("OCR Results", montage)
+cv2.waitKey(0)
