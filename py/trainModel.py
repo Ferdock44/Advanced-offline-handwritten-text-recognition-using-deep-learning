@@ -4,8 +4,11 @@ matplotlib.use("Agg")
 from models import ResNet
 from dataset_loading import load_az
 from dataset_loading import load_mnist_dataset
+from tensorflow.keras.applications import MobileNetV2
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
-from tensorflow.keras.optimizers import SGD
+from tensorflow.keras.optimizers import Adam
+from tensorflow.lite import TFLiteConverter
+from tensorflow.keras import Sequential, layers
 from sklearn.preprocessing import LabelBinarizer
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report
@@ -22,9 +25,10 @@ ap.add_argument("-m", "--model", type=str, required=True,help="path to output tr
 ap.add_argument("-p", "--plot", type=str, default="plot.png", help="path to output training history file")
 args = vars(ap.parse_args())
 
-EPOCHS = 50
-INIT_LR = 1e-1
-BS = 128
+# INIT_LR = 1e-1
+IMAGE_SIZE = 28
+EPOCHS = 20
+BATCH_SIZE = 128
 
 # Loading in the datasets
 print("...loading datasets...")
@@ -43,11 +47,11 @@ labels = np.hstack([azLabels, digitsLabels])
 # All images from both datasets are 28x28 pixels
 # ResNet architechture requires 32x32 pixel images
 # so resizing 28x28 to 32x32
-data = [cv2.resize(image, (32, 32)) for image in data]
+# data = [cv2.resize(image, (32, 32)) for image in data]
 data = np.array(data, dtype="float32")
 
 data = np.expand_dims(data, axis=-1)
-data /= 255.0
+# data /= 255.0
 
 # Convert the labels from ints to vectors
 le = LabelBinarizer()
@@ -66,8 +70,11 @@ for i in range(0, len(classTotals)):
 # test_size specifies test set to be 20%
 (Xtrain, Xtest, Ytrain, Ytest) = train_test_split(data, labels, test_size=0.2, stratify=labels, random_state=42)
 
+print("The shape of Xtrain: " + Xtrain.shape)
+
 # Image generator for image augmentation
-aug = ImageDataGenerator(
+data_gen = ImageDataGenerator(
+    rescale=1./255.0,
     rotation_range=10,
     zoom_range=0.05,
     width_shift_range=0.1,
@@ -76,6 +83,39 @@ aug = ImageDataGenerator(
     horizontal_flip=False,
     fill_mode="nearest"
 )
+
+test_data_gen = ImageDataGenerator(rescale=1./255.0)
+
+train_generator = data_gen.flow(
+    Xtrain,
+    Ytrain,
+    batch_size=BATCH_SIZE,
+    seed=7
+)
+validation_generator = test_data_gen.flow(
+    Xtest,
+    Ytest,
+    batch_size=BATCH_SIZE,
+    seed=7
+)
+
+print(train_generator.class_indices)
+labels = '\n'.join(sorted(train_generator.class_indices.keys()))
+with open('labels.txt', 'w') as f:
+    f.write(labels)
+
+IMG_SHAPE = (IMAGE_SIZE, IMAGE_SIZE, 3)
+base_model = MobileNetV2(
+    input_shape=IMG_SHAPE,
+    include_top=False,
+    weights='imagenet'
+)
+
+base_model.trainable=False
+model = Sequential([
+    base_model,
+
+])
 
 # Initialize and compile deep neural network
 print("...compiling model...")
@@ -87,9 +127,9 @@ model.compile(loss="categorical_crossentropy", optimizer=opt,metrics=["accuracy"
 # Training the network
 print("...Training the network...")
 H = model.fit(
-    aug.flow(Xtrain, Ytrain, batch_size=BS),
+    aug.flow(Xtrain, Ytrain, batch_size=BATCH_SIZE),
     validation_data=(Xtest, Ytest),
-    steps_per_epoch=len(Xtrain) // BS,
+    steps_per_epoch=len(Xtrain) // BATCH_SIZE,
     epochs=EPOCHS,
     class_weight=classWeight,
     verbose=1
@@ -102,7 +142,7 @@ labelNames = [l for l in labelNames]
 
 # Evaluating the neural network performance
 print("...evaluating performance...")
-predictions = model.predict(Xtest, batch_size=BS)
+predictions = model.predict(Xtest, batch_size=BATCH_SIZE)
 print(classification_report(Ytest.argmax(axis=1),
                             predictions.argmax(axis=1),
                             target_names=labelNames
