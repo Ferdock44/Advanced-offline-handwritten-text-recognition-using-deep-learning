@@ -114,21 +114,31 @@ base_model = MobileNetV2(
 base_model.trainable=False
 model = Sequential([
     base_model,
+    # This layer creates a convolutional kernel
+    layers.Conv2D(32,3, activation = 'relu'),
+    # This layer prevents the neural network from overfitting
+    layers.Dropout(0.2),
+    # This layer calculates the average output of each feature map
+    # of the previous layer to reduce the data
+    layers.GlobalAveragePooling2D(),
+    # 36 = number of classes
+    layers.Dense(36, activation='softmax')
 
 ])
 
 # Initialize and compile deep neural network
 print("...compiling model...")
-opt = SGD(ls=INIT_LR, decay=INIT_LR / EPOCHS)
-model = ResNet.build(32, 32, 1, len(le.classes_), (3, 3, 3),
-                     (64, 64, 128, 256), reg=0.0005)
-model.compile(loss="categorical_crossentropy", optimizer=opt,metrics=["accuracy"])
+model.compile(
+    optimizer = Adam(),
+    loss='categorical_crossentropy',
+    metrics=['accuracy']
+)
 
 # Training the network
 print("...Training the network...")
 H = model.fit(
-    aug.flow(Xtrain, Ytrain, batch_size=BATCH_SIZE),
-    validation_data=(Xtest, Ytest),
+    train_generator,
+    validation_data=validation_generator,
     steps_per_epoch=len(Xtrain) // BATCH_SIZE,
     epochs=EPOCHS,
     class_weight=classWeight,
