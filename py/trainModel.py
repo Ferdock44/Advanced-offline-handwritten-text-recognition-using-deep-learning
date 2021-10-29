@@ -7,6 +7,7 @@ from dataset_loading import load_mnist_dataset
 from tensorflow.keras.applications import MobileNetV2
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
 from tensorflow.keras.optimizers import Adam
+from tensorflow import saved_model
 from tensorflow.lite import TFLiteConverter
 from tensorflow.keras import Sequential, layers
 from sklearn.preprocessing import LabelBinarizer
@@ -160,7 +161,14 @@ print(classification_report(Ytest.argmax(axis=1),
 
 # save the model
 print("...serializing network...")
-model.save(args["model"], save_format="h5")
+#model.save(args["model"], save_format="h5")
+saved_model.save(model, '')
+
+converter = TFLiteConverter.from_saved_model('')
+tflite_model = converter.convert()
+
+with open('model.tflite', 'wb') as f:
+    f.write(tflite_model)
 
 # construct and save a plot that shows training history
 N = np.arange(0, EPOCHS)
