@@ -1,14 +1,14 @@
 import matplotlib
 matplotlib.use("Agg")
 
-from models import ResNet
 from dataset_loading import load_az
 from dataset_loading import load_mnist_dataset
+import tensorflow as tf
 from tensorflow.keras.applications import MobileNetV2
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
 from tensorflow.keras.optimizers import Adam
 from tensorflow import saved_model
-from tensorflow.lite import TFLiteConverter
+#from tensorflow.lite import TFLiteConverter
 from tensorflow.keras import Sequential, layers
 from sklearn.preprocessing import LabelBinarizer
 from sklearn.model_selection import train_test_split
@@ -33,8 +33,8 @@ BATCH_SIZE = 128
 
 # Loading in the datasets
 print("...loading datasets...")
-(azData, azLabels) = load_az(args["az"])
 (digitsData, digitsLabels) = load_mnist_dataset()
+(azData, azLabels) = load_az(args["az"])
 
 # Letter labels are 0-25 for letters in alphabet
 # since we are combining with the digits, we shift
@@ -51,7 +51,8 @@ labels = np.hstack([azLabels, digitsLabels])
 # data = [cv2.resize(image, (32, 32)) for image in data]
 data = np.array(data, dtype="float32")
 
-data = np.expand_dims(data, axis=-1)
+# No longer needed since it was already reshaped to (data.shape[0], 28, 28, 1)
+# data = np.expand_dims(data, axis=-1)
 # data /= 255.0
 
 # Convert the labels from ints to vectors
@@ -65,13 +66,13 @@ classWeight = []
 
 # Loop over all the classes and calculate the weights
 for i in range(0, len(classTotals)):
-    classWeight[i] = classTotals.max() / classTotals[i]
+    classWeight.append(classTotals.max() / classTotals[i])
 
 # Split the data into test and training datasets
 # test_size specifies test set to be 20%
 (Xtrain, Xtest, Ytrain, Ytest) = train_test_split(data, labels, test_size=0.2, stratify=labels, random_state=42)
 
-print("The shape of Xtrain: " + Xtrain.shape)
+print("The shape of Xtrain: ", Xtrain.shape)
 
 # Image generator for image augmentation
 data_gen = ImageDataGenerator(
@@ -91,6 +92,7 @@ train_generator = data_gen.flow(
     Xtrain,
     Ytrain,
     batch_size=BATCH_SIZE,
+    class_mode="categorical",
     seed=7
 )
 validation_generator = test_data_gen.flow(
@@ -101,11 +103,11 @@ validation_generator = test_data_gen.flow(
 )
 
 print(train_generator.class_indices)
-labels = '\n'.join(sorted(train_generator.class_indices.keys()))
+_labels = '\n'.join(sorted(train_generator.class_indices.keys()))
 with open('labels.txt', 'w') as f:
-    f.write(labels)
+    f.write(_labels)
 
-IMG_SHAPE = (IMAGE_SIZE, IMAGE_SIZE, 3)
+IMG_SHAPE = (IMAGE_SIZE, IMAGE_SIZE, 1)
 base_model = MobileNetV2(
     input_shape=IMG_SHAPE,
     include_top=False,
@@ -164,11 +166,11 @@ print("...serializing network...")
 #model.save(args["model"], save_format="h5")
 saved_model.save(model, '')
 
-converter = TFLiteConverter.from_saved_model('')
-tflite_model = converter.convert()
-
-with open('model.tflite', 'wb') as f:
-    f.write(tflite_model)
+# converter = TFLiteConverter.from_saved_model('')
+# tflite_model = converter.convert()
+#
+# with open('model.tflite', 'wb') as f:
+#     f.write(tflite_model)
 
 # construct and save a plot that shows training history
 N = np.arange(0, EPOCHS)
