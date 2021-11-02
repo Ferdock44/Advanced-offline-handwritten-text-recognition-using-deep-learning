@@ -6,6 +6,11 @@
       <sourceFolder url="file://$MODULE_DIR$/py" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/py/dataset_loading" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/py/models" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/py/datasets" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/py/datasets/test" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/py/datasets/train" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/py/datasets/valid" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/py/_datasets" isTestSource="false" />
       <excludeFolder url="file://$MODULE_DIR$/py/A_Z Handwritten Data/dataset_loading" />
     </content>
     <orderEntry type="inheritedJdk" />

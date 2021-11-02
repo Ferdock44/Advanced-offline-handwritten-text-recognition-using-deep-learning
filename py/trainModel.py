@@ -3,12 +3,11 @@ matplotlib.use("Agg")
 
 from dataset_loading import load_az
 from dataset_loading import load_mnist_dataset
-import tensorflow as tf
 from tensorflow.keras.applications import MobileNetV2
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
-from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.optimizers import Adam, SGD
 from tensorflow import saved_model
-#from tensorflow.lite import TFLiteConverter
+from tensorflow import lite
 from tensorflow.keras import Sequential, layers
 from sklearn.preprocessing import LabelBinarizer
 from sklearn.model_selection import train_test_split
@@ -18,6 +17,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import argparse
 import cv2
+import os
 
 # Setting up the argument parser and adding arguments
 ap = argparse.ArgumentParser()
@@ -26,12 +26,13 @@ ap.add_argument("-m", "--model", type=str, required=True,help="path to output tr
 ap.add_argument("-p", "--plot", type=str, default="plot.png", help="path to output training history file")
 args = vars(ap.parse_args())
 
-# INIT_LR = 1e-1
-IMAGE_SIZE = 28
-EPOCHS = 20
+INIT_LR = 1e-1
+IMAGE_SIZE = 128
+EPOCHS = 50
 BATCH_SIZE = 128
 
-# Loading in the datasets
+
+# # Loading in the datasets
 print("...loading datasets...")
 (digitsData, digitsLabels) = load_mnist_dataset()
 (azData, azLabels) = load_az(args["az"])
@@ -48,18 +49,85 @@ labels = np.hstack([azLabels, digitsLabels])
 # All images from both datasets are 28x28 pixels
 # ResNet architechture requires 32x32 pixel images
 # so resizing 28x28 to 32x32
-# data = [cv2.resize(image, (32, 32)) for image in data]
+data = [cv2.resize(image, (32, 32)) for image in data]
 data = np.array(data, dtype="float32")
 
-# No longer needed since it was already reshaped to (data.shape[0], 28, 28, 1)
-# data = np.expand_dims(data, axis=-1)
-# data /= 255.0
+data = np.expand_dims(data, axis=-1)
+#data *= 1.0/255.0
+
+# label_to_alpha = {10: "A", 11: "B", 12: "C", 13: "D", 14:"E",
+#                   15: "F", 16: "G", 17: "H", 18: "I", 19: "J",
+#                   20: "K", 21: "L", 22: "M", 23: "N", 24: "O",
+#                   25: "P", 26: "Q", 27: "R", 28: "S", 29: "T",
+#                   30: "U", 31: "V", 32: "W", 33: "X", 34: "Y",
+#                   35: "Z"}
+#
+#
+# rgbData = []
+# adjustedLabels = []
+# for i in range(labels.shape[0]):
+#     rgbData.append(cv2.cvtColor(data[i], cv2.COLOR_GRAY2RGB))
+#     if labels[i] >= 10:
+#         adjustedLabels.append(label_to_alpha[labels[i]])
+#     else:
+#         adjustedLabels.append(labels[i])
+# rgbData = np.array(rgbData, dtype="float32")
+# adjustedLabels = np.array(adjustedLabels)
+#
+# (Xtrain, Xrem, Ytrain, Yrem) = train_test_split(rgbData, adjustedLabels, test_size=0.2, stratify=adjustedLabels, random_state=42)
+# (Xtest, Xvalid, Ytest, Yvalid) = train_test_split(Xrem, Yrem, test_size=0.5, stratify=Yrem, random_state=42)
+#
+# base = "./_datasets/train/"
+#
+# for image, label in zip(Xtrain, Ytrain):
+#     # Saving to class folders
+#     files = 0
+#     if len(os.listdir(base)) == 0 or label not in os.listdir(base):
+#         print("Determined ./datasets/train/ was empty or did not contain class directory")
+#         newD = os.path.join(base, str(label))
+#         print("newD: ", newD)
+#         os.mkdir(newD)
+#         cv2.imwrite(os.path.join(newD, f'{label}_1.png'), image)
+#     else:
+#         class_dir = os.path.join(base, str(label))
+#         for b, d, f in os.walk(class_dir):
+#             for Files in f:
+#                 files += 1
+#         cv2.imwrite(os.path.join(class_dir, f'{label}_{files + 1}.png'), image)
+#
+# base = "./_datasets/test/test_folder"
+# files = 0
+# for image, label in zip(Xtest, Ytest):
+#     files += 1
+#     cv2.imwrite(os.path.join(base, f'test_{files + 1}.png'), image)
+#
+# base = "./_datasets/valid/"
+#
+# for image, label in zip(Xvalid, Yvalid):
+#     # Saving to class folders
+#     files = 0
+#     if len(os.listdir(base)) == 0 or label not in os.listdir(base):
+#         print("Determined ./datasets/train/ was empty or did not contain class directory")
+#         newD = os.path.join(base, str(label))
+#         print("newD: ", newD)
+#         os.mkdir(newD)
+#         cv2.imwrite(os.path.join(newD, f'{label}_1.png'), image)
+#     else:
+#         class_dir = os.path.join(base, str(label))
+#         for b, d, f in os.walk(class_dir):
+#             for Files in f:
+#                 files += 1
+#         cv2.imwrite(os.path.join(class_dir, f'{label}_{files + 1}.png'), image)
+# print("...should have finished saving image by now...")
 
 # Convert the labels from ints to vectors
 le = LabelBinarizer()
 labels = le.fit_transform(labels)
 counts = labels.sum(axis=0)
 
+# justMakingSure = cv2.imread("./datasets/train/A/A_1.png")
+# cv2.imshow("datasets/train/A/A_1.png", justMakingSure)
+# cv2.imshow("_datasets/train/A/A_1.png", cv2.imread("./_datasets/train/A/A_1.png"))
 # Account for skew in the labeled data
 classTotals = labels.sum(axis=0)
 classWeight = []
@@ -70,9 +138,9 @@ for i in range(0, len(classTotals)):
 
 # Split the data into test and training datasets
 # test_size specifies test set to be 20%
-(Xtrain, Xtest, Ytrain, Ytest) = train_test_split(data, labels, test_size=0.2, stratify=labels, random_state=42)
+data *= 1./255.0
 
-print("The shape of Xtrain: ", Xtrain.shape)
+(Xtrain, Xtest, Ytrain, Ytest) = train_test_split(data, labels, test_size=0.2, stratify=labels, random_state=42)
 
 # Image generator for image augmentation
 data_gen = ImageDataGenerator(
@@ -88,26 +156,43 @@ data_gen = ImageDataGenerator(
 
 test_data_gen = ImageDataGenerator(rescale=1./255.0)
 
-train_generator = data_gen.flow(
-    Xtrain,
-    Ytrain,
+train_generator = data_gen.flow_from_directory(
+    directory = r"./_datasets/train",
+    target_size=(IMAGE_SIZE, IMAGE_SIZE),
+    color_mode="rgb",
     batch_size=BATCH_SIZE,
     class_mode="categorical",
-    seed=7
+    shuffle=True,
+    seed=42
 )
-validation_generator = test_data_gen.flow(
-    Xtest,
-    Ytest,
+
+validation_generator = test_data_gen.flow_from_directory(
+    directory = r"./_datasets/valid",
+    target_size=(IMAGE_SIZE, IMAGE_SIZE),
+    color_mode="rgb",
     batch_size=BATCH_SIZE,
-    seed=7
+    class_mode="categorical",
+    shuffle=True,
+    seed=42
 )
+
+test_generator = test_data_gen.flow_from_directory(
+    directory = r"./_datasets/test",
+    target_size=(IMAGE_SIZE, IMAGE_SIZE),
+    color_mode="rgb",
+    batch_size=1,
+    class_mode=None,
+    shuffle=False,
+    seed=42
+)
+
 
 print(train_generator.class_indices)
 _labels = '\n'.join(sorted(train_generator.class_indices.keys()))
 with open('labels.txt', 'w') as f:
     f.write(_labels)
 
-IMG_SHAPE = (IMAGE_SIZE, IMAGE_SIZE, 1)
+IMG_SHAPE = (IMAGE_SIZE, IMAGE_SIZE, 3)
 base_model = MobileNetV2(
     input_shape=IMG_SHAPE,
     include_top=False,
@@ -131,8 +216,9 @@ model = Sequential([
 
 # Initialize and compile deep neural network
 print("...compiling model...")
+opt = SGD(lr=INIT_LR, decay = INIT_LR / EPOCHS)
 model.compile(
-    optimizer = Adam(),
+    optimizer = opt,
     loss='categorical_crossentropy',
     metrics=['accuracy']
 )
@@ -141,8 +227,9 @@ model.compile(
 print("...Training the network...")
 H = model.fit(
     train_generator,
+    steps_per_epoch=train_generator.n // train_generator.batch_size,
     validation_data=validation_generator,
-    steps_per_epoch=len(Xtrain) // BATCH_SIZE,
+    validation_steps=validation_generator.n // validation_generator.batch_size,
     epochs=EPOCHS,
     class_weight=classWeight,
     verbose=1
@@ -166,11 +253,11 @@ print("...serializing network...")
 #model.save(args["model"], save_format="h5")
 saved_model.save(model, '')
 
-# converter = TFLiteConverter.from_saved_model('')
-# tflite_model = converter.convert()
-#
-# with open('model.tflite', 'wb') as f:
-#     f.write(tflite_model)
+converter = lite.TFLiteConverter.from_saved_model('')
+tflite_model = converter.convert()
+
+with open('model.tflite', 'wb') as f:
+    f.write(tflite_model)
 
 # construct and save a plot that shows training history
 N = np.arange(0, EPOCHS)
