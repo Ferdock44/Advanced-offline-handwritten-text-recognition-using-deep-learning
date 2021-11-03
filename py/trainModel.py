@@ -61,11 +61,11 @@ data = np.expand_dims(data, axis=-1)
 
 # Convert the labels from ints to vectors
 le = LabelBinarizer()
-labels = le.fit_transform(labels)
-counts = labels.sum(axis=0)
+_labels = le.fit_transform(labels)
+counts = _labels.sum(axis=0)
 
 # Account for skew in the labeled data
-classTotals = labels.sum(axis=0)
+classTotals = _labels.sum(axis=0)
 classWeight = []
 print(classTotals.shape)
 print(type(classTotals))
@@ -78,112 +78,114 @@ for i in range(0, len(classTotals)):
 #data *= 1./255.0
 
 # Convert these numpy datasets to tensorflow datasets
-print("...loading in ds_train_data...")
-ds_train_data = tf.data.Dataset.from_tensor_slices((Xtrain, Ytrain))
-print("...loading in ds_val_data...")
-ds_val_data = tf.data.Dataset.from_tensor_slices((Xvalid, Yvalid))
-print("...finished loading ds_val_data...")
-
-# print(list(ds_train_data.as_numpy_iterator()))
-# print(list(ds_val_data.as_numpy_iterator()))
-
-
-def preprocess(image, label):
-    image = tf.cast(image, tf.float32)
-    image = image / 255.0
-    return image, label
-
-AUTOTUNE = tf.data.experimental.AUTOTUNE
-print("...initializing ds_train...")
-ds_train = (
-    ds_train_data
-    .map(preprocess, num_parallel_calls=AUTOTUNE)
-    .cache()
-    .shuffle(Xtrain.shape[0])
-    .batch(BATCH_SIZE)
-    .prefetch(AUTOTUNE)
-)
-print("...initializing ds_val...")
-ds_val = (
-    ds_val_data
-    .map(preprocess, AUTOTUNE)
-    .batch(BATCH_SIZE)
-    .cache()
-    .prefetch(AUTOTUNE)
-
-)
-print("...beginning defining layers...")
-# Image generator for image augmentation
-inputs = layers.Input(shape=(28, 28, 1), name='input')
-
-x = layers.Conv2D(24, kernel_size=(6, 6), strides=1)(inputs)
-x = layers.BatchNormalization(scale=False, beta_initializer=Constant(0.01))(x)
-x = layers.Activation('relu')(x)
-x = layers.Dropout(rate=0.25)(x)
-
-x = layers.Conv2D(48, kernel_size=(5, 5), strides=2)(x)
-x = layers.BatchNormalization(scale=False, beta_initializer=Constant(0.01))(x)
-x = layers.Activation('relu')(x)
-x = layers.Dropout(rate=0.25)(x)
-
-x = layers.Conv2D(64, kernel_size=(4, 4), strides=2)(x)
-x = layers.BatchNormalization(scale=False, beta_initializer=Constant(0.01))(x)
-x = layers.Activation('relu')(x)
-x = layers.Dropout(rate=0.25)(x)
-
-x = layers.Flatten()(x)
-x = layers.Dense(200)(x)
-x = layers.BatchNormalization(scale=False, beta_initializer=Constant(0.01))(x)
-x = layers.Activation('relu')(x)
-x = layers.Dropout(rate=0.25)(x)
-
-predications = layers.Dense(NUM_CLASSES, activation='softmax', name='output')(x)
-
-# Initialize and compile deep neural network
-print("...compiling model...")
-model = Model(inputs=inputs, outputs=predications)
-model.compile(
-    optimizer = Adam(),
-    loss='sparse_categorical_crossentropy',
-    metrics=['accuracy']
-)
-model.summary()
-# Training the network
-print("...Training the network...")
-LR_DECAY = lambda epoch: 0.0001 + 0.02 * math.pow(1.0 / math.e, epoch / 3.0)
-decay_callback = LearningRateScheduler(LR_DECAY, verbose=1)
-H = model.fit(
-    ds_train,
-    validation_data=ds_val,
-    callbacks=[decay_callback],
-    epochs=EPOCHS,
-    #class_weight=classWeight,
-    verbose=1
-)
-
+# print("...loading in ds_train_data...")
+# ds_train_data = tf.data.Dataset.from_tensor_slices((Xtrain, Ytrain))
+# print("...loading in ds_val_data...")
+# ds_val_data = tf.data.Dataset.from_tensor_slices((Xvalid, Yvalid))
+# print("...finished loading ds_val_data...")
+#
+# # print(list(ds_train_data.as_numpy_iterator()))
+# # print(list(ds_val_data.as_numpy_iterator()))
+#
+#
+# def preprocess(image, label):
+#     image = tf.cast(image, tf.float32)
+#     image = image / 255.0
+#     return image, label
+#
+# AUTOTUNE = tf.data.experimental.AUTOTUNE
+# print("...initializing ds_train...")
+# ds_train = (
+#     ds_train_data
+#     .map(preprocess, num_parallel_calls=AUTOTUNE)
+#     .cache()
+#     .shuffle(Xtrain.shape[0])
+#     .batch(BATCH_SIZE)
+#     .prefetch(AUTOTUNE)
+# )
+# print("...initializing ds_val...")
+# ds_val = (
+#     ds_val_data
+#     .map(preprocess, AUTOTUNE)
+#     .batch(BATCH_SIZE)
+#     .cache()
+#     .prefetch(AUTOTUNE)
+#
+# )
+# print("...beginning defining layers...")
+# # Image generator for image augmentation
+# inputs = layers.Input(shape=(28, 28, 1), name='input')
+#
+# x = layers.Conv2D(24, kernel_size=(6, 6), strides=1)(inputs)
+# x = layers.BatchNormalization(scale=False, beta_initializer=Constant(0.01))(x)
+# x = layers.Activation('relu')(x)
+# x = layers.Dropout(rate=0.25)(x)
+#
+# x = layers.Conv2D(48, kernel_size=(5, 5), strides=2)(x)
+# x = layers.BatchNormalization(scale=False, beta_initializer=Constant(0.01))(x)
+# x = layers.Activation('relu')(x)
+# x = layers.Dropout(rate=0.25)(x)
+#
+# x = layers.Conv2D(64, kernel_size=(4, 4), strides=2)(x)
+# x = layers.BatchNormalization(scale=False, beta_initializer=Constant(0.01))(x)
+# x = layers.Activation('relu')(x)
+# x = layers.Dropout(rate=0.25)(x)
+#
+# x = layers.Flatten()(x)
+# x = layers.Dense(200)(x)
+# x = layers.BatchNormalization(scale=False, beta_initializer=Constant(0.01))(x)
+# x = layers.Activation('relu')(x)
+# x = layers.Dropout(rate=0.25)(x)
+#
+# predications = layers.Dense(NUM_CLASSES, activation='softmax', name='output')(x)
+#
+# # Initialize and compile deep neural network
+# print("...compiling model...")
+# model = Model(inputs=inputs, outputs=predications)
+# model.compile(
+#     optimizer = Adam(),
+#     loss='sparse_categorical_crossentropy',
+#     metrics=['accuracy']
+# )
+# model.summary()
+# # Training the network
+# print("...Training the network...")
+# LR_DECAY = lambda epoch: 0.0001 + 0.02 * math.pow(1.0 / math.e, epoch / 3.0)
+# decay_callback = LearningRateScheduler(LR_DECAY, verbose=1)
+# H = model.fit(
+#     ds_train,
+#     validation_data=ds_val,
+#     callbacks=[decay_callback],
+#     epochs=EPOCHS,
+#     #class_weight=classWeight,
+#     verbose=1
+# )
+#
 # Define the list of label names
 labelNames = "0123456789"
 labelNames += "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 labelNames = [l for l in labelNames]
+#
+# # Evaluating the neural network performance
+# print("...evaluating performance...")
+# predictions = model.predict(Xtest, batch_size=BATCH_SIZE)
+# print(classification_report(Ytest,
+#                             predictions.argmax(axis=1),
+#                             target_names=labelNames
+#                             ))
+#
+# # save the model
+# print("...serializing network...")
+# #model.save(args["model"], save_format="h5")
+# saved_model.save(model, '')
+#
+# converter = lite.TFLiteConverter.from_saved_model('')
+# tflite_model = converter.convert()
+#
+# with open('model.tflite', 'wb') as f:
+#     f.write(tflite_model)
 
-# Evaluating the neural network performance
-print("...evaluating performance...")
-predictions = model.predict(Xtest, batch_size=BATCH_SIZE)
-print(classification_report(Ytest,
-                            predictions.argmax(axis=1),
-                            target_names=labelNames
-                            ))
-
-# save the model
-print("...serializing network...")
-#model.save(args["model"], save_format="h5")
-saved_model.save(model, '')
-
-converter = lite.TFLiteConverter.from_saved_model('')
-tflite_model = converter.convert()
-
-with open('model.tflite', 'wb') as f:
-    f.write(tflite_model)
+model = tf.keras.models.load_model('./')
 
 # initialize list of output test images
 images = []
@@ -201,7 +203,7 @@ for i in np.random.choice(np.arange(0, len(Ytest)), size=(49,)):
     color = (0, 255, 0)
 
     # Label color as red if incorrect
-    if prediction[0] != np.argmax(Ytest[i]):
+    if prediction[0] != Ytest[i]:
         color = (0, 0, 255)
 
     # Merge the channels into one image and resize from 32 x 32
@@ -221,14 +223,14 @@ cv2.imshow("OCR Results", montage)
 cv2.waitKey(0)
 
 # construct and save a plot that shows training history
-N = np.arange(0, EPOCHS)
-plt.style.use("ggplot")
-plt.figure()
-plt.plot(N, H.history["loss"], label="train_loss")
-plt.plot(N, H.history["val_loss"], label="val_loss")
-plt.title("Training Loss and Accuracy")
-plt.xlabel("Epoch #")
-plt.ylabel("Loss/Accuracy")
-plt.legend(loc="lower left")
-plt.savefig(args["plot"])
+# N = np.arange(0, EPOCHS)
+# plt.style.use("ggplot")
+# plt.figure()
+# plt.plot(N, H.history["loss"], label="train_loss")
+# plt.plot(N, H.history["val_loss"], label="val_loss")
+# plt.title("Training Loss and Accuracy")
+# plt.xlabel("Epoch #")
+# plt.ylabel("Loss/Accuracy")
+# plt.legend(loc="lower left")
+# plt.savefig(args["plot"])
 
