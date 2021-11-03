@@ -29,7 +29,7 @@ ap.add_argument("-p", "--plot", type=str, default="plot.png", help="path to outp
 args = vars(ap.parse_args())
 
 IMAGE_SIZE = 128
-EPOCHS = 25
+EPOCHS = 50
 BATCH_SIZE = 128
 NUM_CLASSES=36
 
