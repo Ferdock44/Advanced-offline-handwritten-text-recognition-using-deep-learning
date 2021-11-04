@@ -5,7 +5,7 @@ import math
 from dataset_loading import load_az
 from dataset_loading import load_mnist_dataset
 import tensorflow as tf
-from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.optimizers import SGD, Adam
 from tensorflow.keras import Model
 from tensorflow.keras.callbacks import LearningRateScheduler
 import tensorflow.keras.layers as layers
@@ -15,6 +15,7 @@ from tensorflow import lite
 from sklearn.preprocessing import LabelBinarizer
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report
+from sklearn.utils import shuffle
 from imutils import build_montages
 import matplotlib.pyplot as plt
 import numpy as np
@@ -29,10 +30,10 @@ ap.add_argument("-p", "--plot", type=str, default="plot.png", help="path to outp
 args = vars(ap.parse_args())
 
 IMAGE_SIZE = 128
-EPOCHS = 50
-BATCH_SIZE = 128
+EPOCHS = 1
+BATCH_SIZE = 64
 NUM_CLASSES=36
-
+INIT_LR = 1e-1
 
 # # Loading in the datasets
 print("...loading datasets...")
@@ -47,7 +48,8 @@ azLabels += 10
 # Combine digits and az datasets
 data = np.vstack([azData, digitsData])
 labels = np.hstack([azLabels, digitsLabels])
-
+# data = azData
+# labels = azLabels
 # All images from both datasets are 28x28 pixels
 # ResNet architechture requires 32x32 pixel images
 # so resizing 28x28 to 32x32
@@ -56,8 +58,26 @@ data = np.array(data, dtype="float32")
 data = np.expand_dims(data, axis=-1)
 #data *= 1.0/255.0
 
-(Xtrain, Xrem, Ytrain, Yrem) = train_test_split(data, labels, test_size=0.2, stratify=labels, random_state=42)
-(Xvalid, Xtest, Yvalid, Ytest) = train_test_split(Xrem, Yrem, test_size=0.5, stratify=Yrem, random_state=42)
+#data, labels = shuffle(data, labels, random_state=42)
+
+(Xtrain, Xrem, Ytrain, Yrem) = train_test_split(data, labels, test_size=0.2, stratify=labels, shuffle=True, random_state=42)
+(Xvalid, Xtest, Yvalid, Ytest) = train_test_split(Xrem, Yrem, test_size=0.5, stratify=Yrem, shuffle=True, random_state=42)
+# def sample_counts(ds, dsName):
+#     print("----------------------------------")
+#     print(f'Number of samples per label in {dsName}: ')
+#     sample_counts = {}
+#     for i in range(ds.shape[0]):
+#         if  ds[i] in sample_counts:
+#             sample_counts[ds[i]] += 1
+#         else:
+#             sample_counts[ds[i]] = 1
+#
+#     for k,v in sample_counts.items():
+#         print(k,v)
+#
+# sample_counts(Ytrain, "Ytrain")
+# sample_counts(Yvalid, "Yvalid")
+# sample_counts(Ytest, "Yvalid")
 
 # Convert the labels from ints to vectors
 le = LabelBinarizer()
@@ -77,115 +97,116 @@ for i in range(0, len(classTotals)):
 # test_size specifies test set to be 20%
 #data *= 1./255.0
 
-# Convert these numpy datasets to tensorflow datasets
-# print("...loading in ds_train_data...")
-# ds_train_data = tf.data.Dataset.from_tensor_slices((Xtrain, Ytrain))
-# print("...loading in ds_val_data...")
-# ds_val_data = tf.data.Dataset.from_tensor_slices((Xvalid, Yvalid))
-# print("...finished loading ds_val_data...")
-#
-# # print(list(ds_train_data.as_numpy_iterator()))
-# # print(list(ds_val_data.as_numpy_iterator()))
-#
-#
-# def preprocess(image, label):
-#     image = tf.cast(image, tf.float32)
-#     image = image / 255.0
-#     return image, label
-#
-# AUTOTUNE = tf.data.experimental.AUTOTUNE
-# print("...initializing ds_train...")
-# ds_train = (
-#     ds_train_data
-#     .map(preprocess, num_parallel_calls=AUTOTUNE)
-#     .cache()
-#     .shuffle(Xtrain.shape[0])
-#     .batch(BATCH_SIZE)
-#     .prefetch(AUTOTUNE)
-# )
-# print("...initializing ds_val...")
-# ds_val = (
-#     ds_val_data
-#     .map(preprocess, AUTOTUNE)
-#     .batch(BATCH_SIZE)
-#     .cache()
-#     .prefetch(AUTOTUNE)
-#
-# )
-# print("...beginning defining layers...")
-# # Image generator for image augmentation
-# inputs = layers.Input(shape=(28, 28, 1), name='input')
-#
-# x = layers.Conv2D(24, kernel_size=(6, 6), strides=1)(inputs)
-# x = layers.BatchNormalization(scale=False, beta_initializer=Constant(0.01))(x)
-# x = layers.Activation('relu')(x)
-# x = layers.Dropout(rate=0.25)(x)
-#
-# x = layers.Conv2D(48, kernel_size=(5, 5), strides=2)(x)
-# x = layers.BatchNormalization(scale=False, beta_initializer=Constant(0.01))(x)
-# x = layers.Activation('relu')(x)
-# x = layers.Dropout(rate=0.25)(x)
-#
-# x = layers.Conv2D(64, kernel_size=(4, 4), strides=2)(x)
-# x = layers.BatchNormalization(scale=False, beta_initializer=Constant(0.01))(x)
-# x = layers.Activation('relu')(x)
-# x = layers.Dropout(rate=0.25)(x)
-#
-# x = layers.Flatten()(x)
-# x = layers.Dense(200)(x)
-# x = layers.BatchNormalization(scale=False, beta_initializer=Constant(0.01))(x)
-# x = layers.Activation('relu')(x)
-# x = layers.Dropout(rate=0.25)(x)
-#
-# predications = layers.Dense(NUM_CLASSES, activation='softmax', name='output')(x)
-#
-# # Initialize and compile deep neural network
-# print("...compiling model...")
-# model = Model(inputs=inputs, outputs=predications)
-# model.compile(
-#     optimizer = Adam(),
-#     loss='sparse_categorical_crossentropy',
-#     metrics=['accuracy']
-# )
-# model.summary()
-# # Training the network
-# print("...Training the network...")
-# LR_DECAY = lambda epoch: 0.0001 + 0.02 * math.pow(1.0 / math.e, epoch / 3.0)
-# decay_callback = LearningRateScheduler(LR_DECAY, verbose=1)
-# H = model.fit(
-#     ds_train,
-#     validation_data=ds_val,
-#     callbacks=[decay_callback],
-#     epochs=EPOCHS,
-#     #class_weight=classWeight,
-#     verbose=1
-# )
-#
+#Convert these numpy datasets to tensorflow datasets
+print("...loading in ds_train_data...")
+ds_train_data = tf.data.Dataset.from_tensor_slices((Xtrain, Ytrain))
+print("...loading in ds_val_data...")
+ds_val_data = tf.data.Dataset.from_tensor_slices((Xvalid, Yvalid))
+print("...finished loading ds_val_data...")
+
+# print(list(ds_train_data.as_numpy_iterator()))
+# print(list(ds_val_data.as_numpy_iterator()))
+
+
+def preprocess(image, label):
+    image = tf.cast(image, tf.float32)
+    image = image / 255.0
+    return image, label
+
+AUTOTUNE = tf.data.experimental.AUTOTUNE
+print("...initializing ds_train...")
+ds_train = (
+    ds_train_data
+    .map(preprocess, num_parallel_calls=AUTOTUNE)
+    .cache()
+    .shuffle(Xtrain.shape[0])
+    .batch(BATCH_SIZE)
+    .prefetch(AUTOTUNE)
+)
+print("...initializing ds_val...")
+ds_val = (
+    ds_val_data
+    .map(preprocess, AUTOTUNE)
+    .batch(BATCH_SIZE)
+    .cache()
+    .prefetch(AUTOTUNE)
+
+)
+print("...beginning defining layers...")
+# Image generator for image augmentation
+inputs = layers.Input(shape=(28, 28, 1), name='input')
+
+x = layers.Conv2D(24, kernel_size=(7, 7), strides=1)(inputs)
+x = layers.BatchNormalization(scale=False, beta_initializer=Constant(0.01))(x)
+x = layers.Activation('relu')(x)
+x = layers.Dropout(rate=0.25)(x)
+
+x = layers.Conv2D(48, kernel_size=(5, 5), strides=2)(x)
+x = layers.BatchNormalization(scale=False, beta_initializer=Constant(0.01))(x)
+x = layers.Activation('relu')(x)
+x = layers.Dropout(rate=0.25)(x)
+
+x = layers.Conv2D(64, kernel_size=(3, 3), strides=2)(x)
+x = layers.BatchNormalization(scale=False, beta_initializer=Constant(0.01))(x)
+x = layers.Activation('relu')(x)
+x = layers.Dropout(rate=0.25)(x)
+
+x = layers.Flatten()(x)
+x = layers.Dense(200, activation="relu")(x)
+x = layers.BatchNormalization(scale=False, beta_initializer=Constant(0.01))(x)
+x = layers.Activation('relu')(x)
+x = layers.Dropout(rate=0.2)(x)
+
+predications = layers.Dense(NUM_CLASSES, activation='softmax', name='output')(x)
+
+# Initialize and compile deep neural network
+print("...compiling model...")
+opt = SGD(lr=INIT_LR, decay=INIT_LR / EPOCHS)
+model = Model(inputs=inputs, outputs=predications)
+model.compile(
+    optimizer = Adam(),
+    loss='sparse_categorical_crossentropy',
+    metrics=['accuracy']
+)
+model.summary()
+# Training the network
+print("...Training the network...")
+LR_DECAY = lambda epoch: 0.0001 + 0.02 * math.pow(1.0 / math.e, epoch / 3.0)
+decay_callback = LearningRateScheduler(LR_DECAY, verbose=1)
+H = model.fit(
+    ds_train,
+    validation_data=ds_val,
+    callbacks=[decay_callback],
+    epochs=EPOCHS,
+    #class_weight=classWeight,
+    verbose=1
+)
+
 # Define the list of label names
 labelNames = "0123456789"
 labelNames += "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 labelNames = [l for l in labelNames]
-#
-# # Evaluating the neural network performance
-# print("...evaluating performance...")
-# predictions = model.predict(Xtest, batch_size=BATCH_SIZE)
-# print(classification_report(Ytest,
-#                             predictions.argmax(axis=1),
-#                             target_names=labelNames
-#                             ))
-#
-# # save the model
-# print("...serializing network...")
-# #model.save(args["model"], save_format="h5")
-# saved_model.save(model, '')
-#
-# converter = lite.TFLiteConverter.from_saved_model('')
-# tflite_model = converter.convert()
-#
-# with open('model.tflite', 'wb') as f:
-#     f.write(tflite_model)
 
-model = tf.keras.models.load_model('./')
+# Evaluating the neural network performance
+print("...evaluating performance...")
+predictions = model.predict(Xtest, batch_size=BATCH_SIZE)
+print(classification_report(Ytest,
+                            predictions.argmax(axis=1),
+                            target_names=labelNames
+                            ))
+
+# save the model
+print("...serializing network...")
+#model.save(args["model"], save_format="h5")
+saved_model.save(model, '')
+
+converter = lite.TFLiteConverter.from_saved_model('')
+tflite_model = converter.convert()
+
+with open('model.tflite', 'wb') as f:
+    f.write(tflite_model)
+
+#model = tf.keras.models.load_model('./')
 
 # initialize list of output test images
 images = []
