@@ -1,9 +1,7 @@
 import matplotlib
-matplotlib.use("Agg")
-
 import math
-from dataset_loading import load_az
-from dataset_loading import load_mnist_dataset
+from dataset_loading import loadAZ
+from dataset_loading import loadMnist
 import tensorflow as tf
 from tensorflow.keras.optimizers import SGD, Adam
 from tensorflow.keras import Model
@@ -21,24 +19,27 @@ import matplotlib.pyplot as plt
 import numpy as np
 import argparse
 import cv2
+import matplotlib
+
+matplotlib.use("Agg")
 
 # Setting up the argument parser and adding arguments
 ap = argparse.ArgumentParser()
 ap.add_argument("-a", "--az", required=True, help="path to A-Z dataset")
-ap.add_argument("-m", "--model", type=str, required=True,help="path to output trained handwriting recognition model")
+ap.add_argument("-m", "--model", type=str, required=True, help="path to output trained handwriting recognition model")
 ap.add_argument("-p", "--plot", type=str, default="plot.png", help="path to output training history file")
 args = vars(ap.parse_args())
 
 IMAGE_SIZE = 128
-EPOCHS = 1
+EPOCHS = 400
 BATCH_SIZE = 64
-NUM_CLASSES=36
+NUM_CLASSES = 36
 INIT_LR = 1e-1
 
 # # Loading in the datasets
 print("...loading datasets...")
-(digitsData, digitsLabels) = load_mnist_dataset()
-(azData, azLabels) = load_az(args["az"])
+(digitsData, digitsLabels) = loadMnist.load_mnist_dataset()
+(azData, azLabels) = loadAZ.load_az(args["az"])
 
 # Letter labels are 0-25 for letters in alphabet
 # since we are combining with the digits, we shift
@@ -56,12 +57,17 @@ labels = np.hstack([azLabels, digitsLabels])
 data = np.array(data, dtype="float32")
 
 data = np.expand_dims(data, axis=-1)
-#data *= 1.0/255.0
+# data *= 1.0/255.0
 
-#data, labels = shuffle(data, labels, random_state=42)
+# data, labels = shuffle(data, labels, random_state=42)
 
-(Xtrain, Xrem, Ytrain, Yrem) = train_test_split(data, labels, test_size=0.2, stratify=labels, shuffle=True, random_state=42)
-(Xvalid, Xtest, Yvalid, Ytest) = train_test_split(Xrem, Yrem, test_size=0.5, stratify=Yrem, shuffle=True, random_state=42)
+(Xtrain, Xrem, Ytrain, Yrem) = train_test_split(data, labels, test_size=0.3, stratify=labels, shuffle=True,
+                                                random_state=42)
+(Xvalid, Xtest, Yvalid, Ytest) = train_test_split(Xrem, Yrem, test_size=0.5, stratify=Yrem, shuffle=True,
+                                                  random_state=42)
+
+Xtest /= 255.0
+
 # def sample_counts(ds, dsName):
 #     print("----------------------------------")
 #     print(f'Number of samples per label in {dsName}: ')
@@ -95,14 +101,15 @@ for i in range(0, len(classTotals)):
 
 # Split the data into test and training datasets
 # test_size specifies test set to be 20%
-#data *= 1./255.0
+# data *= 1./255.0
 
-#Convert these numpy datasets to tensorflow datasets
+# Convert these numpy datasets to tensorflow datasets
 print("...loading in ds_train_data...")
 ds_train_data = tf.data.Dataset.from_tensor_slices((Xtrain, Ytrain))
 print("...loading in ds_val_data...")
 ds_val_data = tf.data.Dataset.from_tensor_slices((Xvalid, Yvalid))
 print("...finished loading ds_val_data...")
+
 
 # print(list(ds_train_data.as_numpy_iterator()))
 # print(list(ds_val_data.as_numpy_iterator()))
@@ -113,23 +120,24 @@ def preprocess(image, label):
     image = image / 255.0
     return image, label
 
+
 AUTOTUNE = tf.data.experimental.AUTOTUNE
 print("...initializing ds_train...")
 ds_train = (
     ds_train_data
-    .map(preprocess, num_parallel_calls=AUTOTUNE)
-    .cache()
-    .shuffle(Xtrain.shape[0])
-    .batch(BATCH_SIZE)
-    .prefetch(AUTOTUNE)
+        .map(preprocess, num_parallel_calls=AUTOTUNE)
+        .cache()
+        .shuffle(Xtrain.shape[0])
+        .batch(BATCH_SIZE)
+        .prefetch(AUTOTUNE)
 )
 print("...initializing ds_val...")
 ds_val = (
     ds_val_data
-    .map(preprocess, AUTOTUNE)
-    .batch(BATCH_SIZE)
-    .cache()
-    .prefetch(AUTOTUNE)
+        .map(preprocess, AUTOTUNE)
+        .batch(BATCH_SIZE)
+        .cache()
+        .prefetch(AUTOTUNE)
 
 )
 print("...beginning defining layers...")
@@ -164,7 +172,7 @@ print("...compiling model...")
 opt = SGD(lr=INIT_LR, decay=INIT_LR / EPOCHS)
 model = Model(inputs=inputs, outputs=predications)
 model.compile(
-    optimizer = Adam(),
+    optimizer=Adam(),
     loss='sparse_categorical_crossentropy',
     metrics=['accuracy']
 )
@@ -178,7 +186,7 @@ H = model.fit(
     validation_data=ds_val,
     callbacks=[decay_callback],
     epochs=EPOCHS,
-    #class_weight=classWeight,
+    # class_weight=classWeight,
     verbose=1
 )
 
@@ -197,16 +205,16 @@ print(classification_report(Ytest,
 
 # save the model
 print("...serializing network...")
-#model.save(args["model"], save_format="h5")
-saved_model.save(model, '')
+# model.save(args["model"], save_format="h5")
+saved_model.save(model, './models')
 
-converter = lite.TFLiteConverter.from_saved_model('')
+converter = lite.TFLiteConverter.from_saved_model('./models')
 tflite_model = converter.convert()
 
-with open('model.tflite', 'wb') as f:
+with open('./models/model.tflite', 'wb') as f:
     f.write(tflite_model)
 
-#model = tf.keras.models.load_model('./')
+# model = tf.keras.models.load_model('./')
 
 # initialize list of output test images
 images = []
@@ -220,7 +228,7 @@ for i in np.random.choice(np.arange(0, len(Ytest)), size=(49,)):
 
     # Extract image from test data and initialize text
     # label color as green if correct
-    image = (Xtest[i] * 255).astype("uint8")
+    image = (Xtest[i] * 255.0).astype("uint8")
     color = (0, 255, 0)
 
     # Label color as red if incorrect
@@ -254,4 +262,3 @@ cv2.waitKey(0)
 # plt.ylabel("Loss/Accuracy")
 # plt.legend(loc="lower left")
 # plt.savefig(args["plot"])
-
