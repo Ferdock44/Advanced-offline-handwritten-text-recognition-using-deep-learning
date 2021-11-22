@@ -34,7 +34,7 @@ class _HomeState extends State<Home> {
     //this function runs the model on the image
     var output = await Tflite.runModelOnImage(
       path: image.path,
-      numResults: 2,
+      numResults: 36,
       threshold: 0.5,
       imageMean: 127.5,
       imageStd: 127.5,
@@ -79,7 +79,7 @@ class _HomeState extends State<Home> {
       appBar: AppBar(
         backgroundColor: Colors.black,
         title: Text(
-          'Facemask Neural Network',
+          'Handwritten Text Neural Network',
           style: TextStyle(
               color: Colors.white,
               fontWeight: FontWeight.w200,
