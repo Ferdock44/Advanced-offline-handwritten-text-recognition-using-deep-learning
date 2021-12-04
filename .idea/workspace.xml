@@ -27,9 +27,9 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="001012ca-27ff-44e2-b12b-cb11722d6675" name="Default Changelist" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/CSCI4390-Advanced-offline-handwritten-text-recognition-using-deep-learning.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/CSCI4390-Advanced-offline-handwritten-text-recognition-using-deep-learning.iml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/py/handwriting_recognition.py" beforeDir="false" afterPath="$PROJECT_DIR$/py/handwriting_recognition.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/py/trainModel.py" beforeDir="false" afterPath="$PROJECT_DIR$/py/trainModel.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
