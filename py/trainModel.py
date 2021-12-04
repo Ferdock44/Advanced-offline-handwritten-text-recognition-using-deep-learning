@@ -205,8 +205,8 @@ print(classification_report(Ytest,
 
 # save the model
 print("...serializing network...")
-# model.save(args["model"], save_format="h5")
-saved_model.save(model, './models')
+model.save(args["model"], save_format="h5")
+#saved_model.save(model, './models')
 
 converter = lite.TFLiteConverter.from_saved_model('./models')
 tflite_model = converter.convert()
