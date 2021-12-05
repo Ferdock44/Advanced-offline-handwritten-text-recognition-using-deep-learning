@@ -1,15 +1,13 @@
 import matplotlib
 import math
-from dataset_loading import loadAZ
-from dataset_loading import loadMnist
+from dataset_loading import loadAZ, loadMnist
 import tensorflow as tf
 from tensorflow.keras.optimizers import SGD, Adam
 from tensorflow.keras import Model
 from tensorflow.keras.callbacks import LearningRateScheduler
 import tensorflow.keras.layers as layers
 from tensorflow.keras.initializers import Constant
-from tensorflow import saved_model
-from tensorflow import lite
+from tensorflow import saved_model, lite
 from sklearn.preprocessing import LabelBinarizer
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report
@@ -36,7 +34,7 @@ BATCH_SIZE = 64
 NUM_CLASSES = 36
 INIT_LR = 1e-1
 
-# # Loading in the datasets
+# Loading in the datasets
 print("...loading datasets...")
 (digitsData, digitsLabels) = loadMnist.load_mnist_dataset()
 (azData, azLabels) = loadAZ.load_az(args["az"])
@@ -171,6 +169,7 @@ predications = layers.Dense(NUM_CLASSES, activation='softmax', name='output')(x)
 print("...compiling model...")
 opt = SGD(lr=INIT_LR, decay=INIT_LR / EPOCHS)
 model = Model(inputs=inputs, outputs=predications)
+
 model.compile(
     optimizer=Adam(),
     loss='sparse_categorical_crossentropy',
@@ -181,6 +180,7 @@ model.summary()
 print("...Training the network...")
 LR_DECAY = lambda epoch: 0.0001 + 0.02 * math.pow(1.0 / math.e, epoch / 3.0)
 decay_callback = LearningRateScheduler(LR_DECAY, verbose=1)
+
 H = model.fit(
     ds_train,
     validation_data=ds_val,
@@ -205,14 +205,14 @@ print(classification_report(Ytest,
 
 # save the model
 print("...serializing network...")
-# model.save(args["model"], save_format="h5")
-saved_model.save(model, './models')
+model.save(args["model"], save_format="h5")
+# saved_model.save(model, './tf_models')
 
-converter = lite.TFLiteConverter.from_saved_model('./models')
-tflite_model = converter.convert()
+# converter = lite.TFLiteConverter.from_saved_model('./tf_models')
+# tflite_model = converter.convert()
 
-with open('./models/model.tflite', 'wb') as f:
-    f.write(tflite_model)
+# with open('./models/model.tflite', 'wb') as f:
+#     f.write(tflite_model)
 
 # model = tf.keras.models.load_model('./')
 
